@@ -18,8 +18,8 @@ from TTS.utils.manage import ModelManager
 
 
 # Logging parameters
-RUN_NAME = "GPT_XTTS_v2.0_LJSpeech_FT-Przelecz-v1"
-PROJECT_NAME = "XTTS_trainer-Przelecz-v1"
+RUN_NAME = "GPT_XTTS_v2.0_LJSpeech_FT-Przelecz-v2"
+PROJECT_NAME = "XTTS_trainer-Przelecz-v2"
 DASHBOARD_LOGGER = "tensorboard"
 LOGGER_URI = None
 
@@ -32,7 +32,7 @@ OUT_PATH = os.path.join(
 OPTIMIZER_WD_ONLY_ON_WEIGHTS = (
     True  # for multi-gpu training please make it False
 )
-START_WITH_EVAL = False  # if True it will star with evaluation
+START_WITH_EVAL = True  # if True it will star with evaluation
 BATCH_SIZE = 2  # set here the batch size
 GRAD_ACUMM_STEPS = 1  # set here the grad accumulation steps
 EPOCHS = 1000  # set here the number of epochs
@@ -161,6 +161,11 @@ def main():
             },
             {
                 "text": "Szczepan Szczygieł, Z Grzmiących Bystrzyc, Przed chrzcinami,Chciał się przystrzyc. Sam się strzyc, Nie przywykł wszakże, Więc do szwagra, Skoczył: Szwagrze!",
+                "speaker_wav": SPEAKER_REFERENCE,
+                "language": LANGUAGE,
+            },
+            {
+                "text": "13 marca 1966 roku nasz projekt przekroczył 50% ukończenia i zajął 1 miejsce.",
                 "speaker_wav": SPEAKER_REFERENCE,
                 "language": LANGUAGE,
             },
