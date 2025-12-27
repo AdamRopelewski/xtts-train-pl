@@ -173,7 +173,7 @@ def clean_text(s: Optional[str]) -> str:
     return s
 
 
-def process_file(input_path: str, output_path: str, normalizer: Normalizer, overwrite: bool = False, dry_run: bool = False, csv_output: Optional[str] = None, csv_delim: str = "|", keep_ext: bool = False):
+def process_file(input_path: str, output_path: str, normalizer: Optional[Normalizer], overwrite: bool = False, dry_run: bool = False, csv_output: Optional[str] = None, csv_delim: str = "|", keep_ext: bool = False, limit: int = 0, use_t5: bool = True):
     total = 0
     changed = 0
 
@@ -193,6 +193,8 @@ def process_file(input_path: str, output_path: str, normalizer: Normalizer, over
         with open(input_path, "r", encoding="utf-8") as inf, open(output_path, "w", encoding="utf-8") as outf:
 
             for line in tqdm(inf, total=total_lines):
+                if limit and total >= limit:
+                    break
                 total += 1
                 line = line.rstrip("\n")
                 if not line:
@@ -203,74 +205,63 @@ def process_file(input_path: str, output_path: str, normalizer: Normalizer, over
                     print(f"Warning: skipping invalid JSON line {total}", file=sys.stderr)
                     continue
 
-                # Find preserve text. Support both top-level `preserve` or `variants.preserver` structure
-                preserve_text = None
+                # Extract raw transcription from 'whisper_raw' (support variants.whisper_raw or top-level)
+                raw = None
                 if isinstance(obj.get("variants"), dict):
-                    preserve_text = obj["variants"].get("preserve")
-                    existing_expanded = obj["variants"].get("expanded")
-                else:
-                    preserve_text = obj.get("preserve")
-                    existing_expanded = obj.get("expanded")
+                    raw = obj["variants"].get("whisper_raw")
+                if raw is None:
+                    raw = obj.get("whisper_raw")
 
-                if not preserve_text or not preserve_text.strip():
-                    # nothing to normalize; still write object and CSV entry if requested
-                    outf.write(json.dumps(obj, ensure_ascii=False) + "\n")
-                    if csv_fout:
-                        file_path = obj.get("file_path") or obj.get("file") or ""
-                        name = os.path.basename(file_path)
-                        if not keep_ext:
-                            name = os.path.splitext(name)[0]
-                        preserve = ""
-                        expanded = ""
-                        csv_fout.write(f"{name}{csv_delim}{preserve}{csv_delim}{expanded}\n")
-                    continue
+                # If still not found, fall back to existing preserve
+                if raw is None:
+                    if isinstance(obj.get("variants"), dict):
+                        raw = obj["variants"].get("preserve")
+                    else:
+                        raw = obj.get("preserve")
 
-                normalized = existing_expanded
-                should_call = overwrite or (not existing_expanded) or (existing_expanded.strip() == "")
+                raw = (raw or "").strip()
 
+                # Prepare preserve/expanded structure
+                if not isinstance(obj.get("variants"), dict):
+                    obj["variants"] = {}
+                obj["variants"]["preserve"] = raw
+                existing_expanded = obj["variants"].get("expanded")
+
+                # Compute normalized expanded if requested
+                expanded = existing_expanded
+                should_call = use_t5 and (overwrite or not existing_expanded or not existing_expanded.strip())
                 if should_call:
-                    # Clean input before feeding it to the model
-                    preserve_for_model = clean_text(preserve_text)
-                    normalized = normalizer.normalize(preserve_for_model)
+                    if normalizer is None:
+                        raise RuntimeError("T5 normalization requested but no normalizer available")
+                    inp = clean_text(raw)
+                    expanded = normalizer.normalize(inp)
+                    expanded = clean_text(expanded)
 
-                # Clean normalized text (remove leading whitespace/dashes, replace internal dashes)
-                normalized = clean_text(normalized)
+                obj["variants"]["expanded"] = expanded or ""
 
-                # If dry run, just print the first few diffs
+                # If dry run, print a few examples
                 if dry_run and total <= 5:
-                    print("---\nPreserve:\n", preserve_text)
-                    print("Normalized:\n", normalized)
+                    print("---\nFile:\", obj.get('file_path') or obj.get('file') or '')")
+                    print("Preserve:\n", raw)
+                    print("Expanded(T5):\n", expanded)
 
-                # Update object
-                if isinstance(obj.get("variants"), dict):
-                    if obj["variants"].get("expanded") != normalized:
-                        changed += 1
-                    obj["variants"]["expanded"] = normalized
-                else:
-                    if obj.get("expanded") != normalized:
-                        changed += 1
-                    obj["expanded"] = normalized
-
+                # write updated JSONL
                 outf.write(json.dumps(obj, ensure_ascii=False) + "\n")
 
-                # write CSV line if requested
+                # write CSV
                 if csv_fout:
                     file_path = obj.get("file_path") or obj.get("file") or ""
-                    if not file_path:
-                        print(f"Warning: missing file path for JSON object on line {total}", file=sys.stderr)
-                        name = ""
-                    else:
-                        name = os.path.basename(file_path)
-                        if not keep_ext:
-                            name = os.path.splitext(name)[0]
+                    name = os.path.basename(file_path) if file_path else ""
+                    if not keep_ext:
+                        name = os.path.splitext(name)[0]
 
-                    preserve = (preserve_text or "").strip()
+                    preserve = raw
                     # Replace delimiter in text to avoid column shift
-                    if csv_delim in preserve or csv_delim in normalized:
+                    if csv_delim in preserve or csv_delim in (expanded or ""):
                         preserve = preserve.replace(csv_delim, "¦")
-                        norm_for_csv = normalized.replace(csv_delim, "¦")
+                        norm_for_csv = (expanded or "").replace(csv_delim, "¦")
                     else:
-                        norm_for_csv = normalized
+                        norm_for_csv = expanded or ""
 
                     csv_fout.write(f"{name}{csv_delim}{preserve}{csv_delim}{norm_for_csv}\n")
 
@@ -283,25 +274,29 @@ def process_file(input_path: str, output_path: str, normalizer: Normalizer, over
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", "-i", required=True, help="Input JSONL file with preserve variants")
-    parser.add_argument("--output", "-o", required=False, help="Output JSONL file (default: input.normalized.jsonl)")
+    parser.add_argument("--input", "-i", default="train-data/transcriptions/wavs_transcriptions.jsonl", help="Input JSONL file with raw whisper transcriptions (default: train-data/transcriptions/wavs_transcriptions.jsonl)")
+    parser.add_argument("--output", "-o", default="train-data/transcriptions/wavs_transcriptions.prepared.jsonl", help="Output JSONL file with preserve/expanded fields (default: train-data/transcriptions/wavs_transcriptions.prepared.jsonl)")
     parser.add_argument("--model-dir", default=DEFAULT_MODEL_DIR, help="Local model directory (must exist locally)")
     parser.add_argument("--device", default="cpu", choices=("cpu", "cuda"), help="Device to run inference on")
     parser.add_argument("--num-beams", type=int, default=2, help="Beam size for generation (1-2 recommended)")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing expanded variants")
     parser.add_argument("--dry-run", action="store_true", help="Show a few example conversions and exit")
-    parser.add_argument("--csv-output", default="metadata_t5.csv", help="Output CSV metadata file in LJSpeech-style format (default: metadata_t5.csv)")
+    parser.add_argument("--csv-output", default="train-data/transcriptions/metadata_t5.csv", help="Output CSV metadata file in LJSpeech-style format (default: train-data/transcriptions/metadata_t5.csv)")
     parser.add_argument("--csv-delim", default="|", help="CSV field delimiter (default: '|')")
     parser.add_argument("--keep-ext", action="store_true", help="Keep file extension in the first column of CSV")
+    parser.add_argument("--no-t5", dest="use_t5", action="store_false", help="Do not run T5 normalization; just prepare CSV from raw transcriptions")
+    parser.add_argument("--limit", type=int, default=0, help="Process only the first N lines (0 = all)")
     args = parser.parse_args()
 
-    out_path = args.output or (args.input + ".normalized.jsonl")
+    out_path = args.output
 
-    print(f"Loading model from {args.model_dir} on {args.device} (local only)...")
-    tokenizer, model = load_model(args.model_dir, args.device)
-    normalizer = Normalizer(tokenizer, model, device=args.device, num_beams=args.num_beams)
+    normalizer = None
+    if args.use_t5:
+        print(f"Loading model from {args.model_dir} on {args.device} (local only)...")
+        tokenizer, model = load_model(args.model_dir, args.device)
+        normalizer = Normalizer(tokenizer, model, device=args.device, num_beams=args.num_beams)
 
-    print(f"Processing {args.input} -> {out_path} and CSV -> {args.csv_output}")
+    print(f"Preparing {args.input} -> {out_path} and CSV -> {args.csv_output} (use_t5={args.use_t5})")
     total, changed = process_file(
         args.input,
         out_path,
@@ -311,6 +306,8 @@ def main():
         csv_output=args.csv_output,
         csv_delim=args.csv_delim,
         keep_ext=args.keep_ext,
+        limit=args.limit,
+        use_t5=args.use_t5,
     )
 
     print(f"Done. Processed {total} lines — updated {changed} entries. CSV written to {args.csv_output}")
