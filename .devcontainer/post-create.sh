@@ -4,7 +4,7 @@ set -e
 
 pip install --no-cache-dir torch torchaudio torchcodec --index-url https://download.pytorch.org/whl/cu130 --break-system-packages
 
-pip install --no-cache-dir faster-whisper --break-system-packages
+pip install --no-cache-dir faster-whisper ipykernel pandas --break-system-packages
 
 
 
