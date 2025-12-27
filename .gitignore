@@ -21,7 +21,10 @@ text-input/*.epub
 
 train-data/csv/*.csv
 train-data/speaker_reference/*.wav
+!train-data/speaker_reference/.gitignore
 train-data/transcriptions/*
 !train-data/transcriptions/.gitignore
 train-data/wavs/*.wav
 !train-data/wavs/.gitignore
+
+
