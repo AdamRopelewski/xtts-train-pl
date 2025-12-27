@@ -138,7 +138,7 @@ python scripts/generate_sample.py  # runs the same default command (text="Dzień
 ```
 
 Note:
-`--model_path` may point to a model directory (Coqui will resolve its checkpoint/config) or a direct `model.pth` file if you prefer.
+`--model_path` may point needs to point to the  model directory not the direct `model.pth` file.
 
 
 Speaker options:
