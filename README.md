@@ -80,15 +80,11 @@ Cleaning rules applied before and after T5 (`clean_text`): remove leading quotes
 
 ---
 
-### 3) Convert to LJSpeech `metadata.csv` (for training)
-If your training recipe expects LJSpeech-style `metadata.csv`:
-
+### 3) LJSpeech `metadata.csv` (for training)
+Rename the `metadata_t5_from_raw.csv` into `metadata.csv` and move it, so it's in the `train-data/csv/metadata.csv`
 ```bash
-python jsonl_to_ljspeech_metadata.py \
-  --input train-data/transcriptions/wavs_transcriptions.t5prepared.jsonl \
-  --output train-data/csv/metadata.csv
+mv train-data/transcriptions/metadata_t5_from_raw.csv train-data/csv/metadata.csv
 ```
-
 ---
 
 ### 4) XTTS base model (manual — required for training)
