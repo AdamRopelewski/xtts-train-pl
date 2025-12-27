@@ -1,0 +1,16 @@
+whisper-models/*
+xtts-base-model/*
+
+text-input/*
+byt5-small-pl-text-normalization/*
+scripts/__pycache__/*
+coqui-tts/*
+__pycache__/*
+run/*
+
+train-data/csv/*.csv
+train-data/speaker_reference/*.wav
+train-data/text_input/*.txt
+train-data/text_input/*.epub
+train-data/transcriptions/*
+train-data/wavs/*.wav
