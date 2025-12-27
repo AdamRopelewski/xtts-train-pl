@@ -39,8 +39,11 @@ WHISPER_COMPRESSION_RATIO_THRESHOLD = 2.4
 WHISPER_LOG_PROB_THRESHOLD = -1.0
 WHISPER_NO_SPEECH_THRESHOLD = 0.6
 
+
+WHISPER_MODE_DEFAULT = "accurate"  # 'accurate' | 'safe'
+# NOTE: safe turns `ł` into `л` for pl lang  
+# since wavs are short accurate mode should not halucinate
 # Mode-specific defaults (accurate)
-WHISPER_MODE_DEFAULT = "safe"
 WHISPER_NO_REPEAT_NGRAM_SIZE_ACCURATE = 0
 WHISPER_REPETITION_PENALTY_ACCURATE = 1.0
 
