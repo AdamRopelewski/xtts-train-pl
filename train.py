@@ -34,11 +34,17 @@ OPTIMIZER_WD_ONLY_ON_WEIGHTS = (
 )
 START_WITH_EVAL = True  # if True it will star with evaluation
 BATCH_SIZE = 2  # set here the batch size
-GRAD_ACUMM_STEPS = 1  # set here the grad accumulation steps
+GRAD_ACUMM_STEPS = 126  # set here the grad accumulation steps
 EPOCHS = 1000  # set here the number of epochs
 WARMUP_EPOCHS = 1  # set here the number of warmup epochs
 # Note: we recommend that BATCH_SIZE * GRAD_ACUMM_STEPS need to be at least 252 for more efficient training.
 # You can increase/decrease BATCH_SIZE but then set GRAD_ACUMM_STEPS accordingly.
+PRINT_STEP = 455
+PLOT_STEP = 455
+SAVE_STEP = 4555
+
+
+
 
 # Define here the dataset that you want to use for the fine-tuning on.
 config_dataset = BaseDatasetConfig(
@@ -119,10 +125,10 @@ def main():
         eval_batch_size=BATCH_SIZE,
         num_loader_workers=2,
         eval_split_max_size=256,
-        print_step=50,
-        plot_step=50,
+        print_step=PRINT_STEP,
+        plot_step=PLOT_STEP,
         log_model_step=1000,
-        save_step=300,
+        save_step=SAVE_STEP,
         save_n_checkpoints=EPOCHS-WARMUP_EPOCHS,  # save a checkpoint every epoch
         save_checkpoints=True,
         # target_loss="loss",
